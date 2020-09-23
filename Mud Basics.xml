@@ -49,7 +49,7 @@ loot()  -- loot() is not part of the MUD Basics package.</script>
 			<name>chow</name>
 			<script>--[[ Easily eat and/or drink.
 
-Pattern: ^chow ?(food|drink)$
+Pattern: ^chow ?(food|drink)?$
 
 `chow` with no arguments will eat and drink the items saved in eq.food and
 eq.drink.  If you'd like to only eat or only drink, simply specify either
@@ -85,7 +85,7 @@ sendAll(unpack(cmds))
 pack(items)</script>
 			<command></command>
 			<packageName></packageName>
-			<regex>^chow ?(food|drink)$</regex>
+			<regex>^chow ?(food|drink)?$</regex>
 		</Alias>
 		<Alias isActive="yes" isFolder="no">
 			<name>pack</name>
@@ -100,10 +100,21 @@ check  - will open, look inside, then close.
 Multiple items can be specified via a comma separated list.  All items will be
 retrieved with only one set of open/close commands.
 --]]
-local mode = matches[2]
+
+if not eq.pack then
+  echo("You don't have a pack.\n")
+  return
+end
+
+local mode = matches[2] or 'pack'
 mode = mode:strip()
 local items = matches[3]
 local sep = ','  -- The delimiter for splitting up the list of items.
+
+local invocation = matches[1]:strip()
+if invocation == 'pack' then
+    mode = 'check'
+end
 
 items = items:split(sep)
 -- Remove leading/trailing whitespace from each item.
@@ -280,14 +291,15 @@ function pack(items, mode, cmdEcho)
   local fmt = string.format
   local insert = table.insert
 
-  mode = mode or 'check'
+  mode = mode or 'pack'
   cmdEcho = cmdEcho or true
   local pack = eq.pack or nil
+  pack = '"' .. pack .. '"'  -- Allow spaces in pack's name.
   if not pack then
     --echo('You have not pack to pack things into.\n')
     return
   end
-  local packHasLid = state.packHasLid or false
+  local packHasLid = eq.packHasLid or false
   local cmds = {}  -- List of all commands required for this action
   local items = items or {}
 
@@ -356,6 +368,22 @@ end</script>
   end
 
   return stripped
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>cast</name>
+			<packageName></packageName>
+			<script>function cast(spell, target, castCmd)
+    local fmt = string.format
+
+    target = target or ''
+    castCmd = castCmd or 'cast'
+    local cmds = {
+        fmt('%s "%s"%s', castCmd, spell, target),
+    }
+
+    sendAll(unpack(cmds))
 end</script>
 			<eventHandlerList />
 		</Script>
