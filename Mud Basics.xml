@@ -46,7 +46,7 @@ loot()  -- loot() is not part of the MUD Basics package.</script>
 	<TimerPackage />
 	<AliasPackage>
 		<Alias isActive="yes" isFolder="no">
-			<name>chow</name>
+			<name>Chow</name>
 			<script>--[[ Easily eat and/or drink.
 
 Pattern: ^chow ?(food|drink)?$
@@ -386,6 +386,75 @@ end</script>
     sendAll(unpack(cmds))
 end</script>
 			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>mudBasicsConfig</name>
+			<packageName></packageName>
+			<script>function mudBasicsConfig(event, moduleName, fileName)
+    --[[ Setup required variables and user functions.
+
+    MUD Basics uses two global tables:
+        * eq - A table of the equipment the character is using
+        * state - A table of variables used to syncroize game state
+
+    MUD Basics also relies on the user defining the following:
+        * loot() - What to do when Auto Loot is triggered.
+        * state.loginSequence - A list of expect/response strings to log into
+                                the MUD as a particular character.
+    --]]
+    echo('\nMod or Pkg loaded!\n')
+    echo(string.format('event: %s\n', event))
+    echo(string.format('moduleName: %s\n', moduleName))
+    echo(string.format('fileName: %s\n', fileName))
+    if moduleName ~= 'MUD Basics' then
+        return
+    end
+
+    local echo = echo
+    local fmt = string.format
+    local insert = table.insert
+    local msg = ''
+    local finalInstructions = {}
+
+    echo('\nmudBasicsConfig\n')
+
+    if not state then
+        state = {}
+        msg = 'Installing global table named "state"'
+        echo(fmt('%s\n', msg))
+        msg = 'Open the variables dialog, and check the box next to "state".'
+        insert(finalInstructions, msg)
+    end
+
+    if not eq then
+        eq = {}
+        msg = 'Installing global table named "eq"'
+        echo(fmt('%s\n', msg))
+        msg = 'Open the variables dialog, and check the box next to "eq".'
+        insert(finalInstructions, msg)
+    end
+
+    if not state.loginSequence then
+        msg = [[
+Auto Login will not work until you've defined a loginSequence.
+]]
+    end
+
+    -- Check for loot function
+    local lootExists = exists('loot', 'script')
+    if lootExists &lt; 1 then  -- If the loot() function is undefined
+        msg = 'Please define a loot() script.'
+        echo(fmt('%s\n', msg))
+    end
+
+    for _, msg in ipairs(finalInstructions) do
+        echo(fmt('%s\n', msg))
+    end
+end</script>
+			<eventHandlerList>
+				<string>sysInstallPackage</string>
+				<string>sysInstallModule</string>
+			</eventHandlerList>
 		</Script>
 	</ScriptPackage>
 	<KeyPackage />

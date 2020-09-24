@@ -1,7 +1,7 @@
 --[[ Automatically loot fallen souls.
 
 Patterns:
-    - '^\*> (.+) is DEAD! <\*$'
+    - '^\*&gt; (.+) is DEAD! &lt;\*$'
     - '^Your blood freezes as you hear( \w+)? (.*)'s death cry.$'
 
 This trigger puts the 'auto' in 'autoloot'.  When any one of the trigger
@@ -16,4 +16,4 @@ properly loot a body for your character.
 Note: For convenience, MUD Basics has also defined an alias, named 'loot', that
 calls the loot() function.
 --]]
-loot()  -- loot() is not part of the MUD Basics package.
+loot()  -- loot() is not part of the MUD Basics package.</script>
