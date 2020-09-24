@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.001">
+	<TriggerPackage>
+		<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+			<name>Auto Loot</name>
+			<script>--[[ Automatically loot fallen souls.
+
+Patterns:
+    - '^\*&gt; (.+) is DEAD! &lt;\*$'
+    - '^Your blood freezes as you hear( \w+)? (.*)'s death cry.$'
+
+This trigger puts the 'auto' in 'autoloot'.  When any one of the trigger
+strings is read, it will call the 'loot' function on your behalf.
+
+Since the actual commands for looting vary from MUD to MUD, and even from one
+character to the next on the same MUD, the actual loot code is stored as an
+external function that is not part of MUD Basics.  Instead, define a function
+named 'loot' that can be called with no arguments.  This function should
+properly loot a body for your character.
+
+Note: For convenience, MUD Basics has also defined an alias, named 'loot', that
+calls the loot() function.
+--]]
+loot()  -- loot() is not part of the MUD Basics package.</script>
+			<triggerType>0</triggerType>
+			<conditonLineDelta>0</conditonLineDelta>
+			<mStayOpen>0</mStayOpen>
+			<mCommand></mCommand>
+			<packageName></packageName>
+			<mFgColor>#ff0000</mFgColor>
+			<mBgColor>#ffff00</mBgColor>
+			<mSoundFile></mSoundFile>
+			<colorTriggerFgColor>#000000</colorTriggerFgColor>
+			<colorTriggerBgColor>#000000</colorTriggerBgColor>
+			<regexCodeList>
+				<string>^\*&gt; (.+) is DEAD! &lt;\*$</string>
+				<string>^Your blood freezes as you hear( \w+)? (.*)'s death cry.$</string>
+			</regexCodeList>
+			<regexCodePropertyList>
+				<integer>1</integer>
+				<integer>1</integer>
+			</regexCodePropertyList>
+		</Trigger>
+	</TriggerPackage>
+	<TimerPackage />
+	<AliasPackage>
+		<Alias isActive="yes" isFolder="no">
+			<name>Chow</name>
+			<script>--[[ Easily eat and/or drink.
+
+Pattern: ^chow ?(food|drink)?$
+
+`chow` with no arguments will eat and drink the items saved in eq.food and
+eq.drink.  If you'd like to only eat or only drink, simply specify either
+'food' or 'drink' as in `chow food`.
+
+If you'd like to never eat or never drink, set either state.hungerless or
+state.thirstless to true.
+--]]
+-- Import some library functions for speed and readability.
+local fmt = string.format
+local insert = table.insert
+
+local food = eq.food or "bread"
+local drink = eq.drink or "waterskin"
+local hungerless = state.hungerless or false
+local thirstless = state.thirstless or false
+local mode = matches[2] or nil
+local cmds = {}  -- The basic commands to eat and drink.
+local items = {}  -- Required items such as eq.food or eq.drink.
+
+if not hungerless and (not mode or mode == 'food') then
+    insert(items, food)
+    insert(cmds, fmt('eat %s', food))
+end
+
+if not thirstless and (not mode or mode == 'drink') then
+    insert(items, drink)
+    insert(cmds, fmt('drink %s', drink))
+end
+
+pack(items, 'unpack')
+sendAll(unpack(cmds))
+pack(items)</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^chow ?(food|drink)?$</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>pack</name>
+			<script>--[[ Easily put things in your backpack.
+
+Pattern: ^(check |un)?pack(.*)
+
+pack   - open your pack (eq.pack), put the item(s) in it, then close it.
+unpack - open, retrieve the item(s), then close.
+check  - will open, look inside, then close.
+
+Multiple items can be specified via a comma separated list.  All items will be
+retrieved with only one set of open/close commands.
+--]]
+
+if not eq.pack then
+  echo("You don't have a pack.\n")
+  return
+end
+
+local mode = matches[2] or 'pack'
+mode = mode:strip()
+local items = matches[3]
+local sep = ','  -- The delimiter for splitting up the list of items.
+
+local invocation = matches[1]:strip()
+if invocation == 'pack' then
+    mode = 'check'
+end
+
+items = items:split(sep)
+-- Remove leading/trailing whitespace from each item.
+for i, item in ipairs(items) do
+  items[i] = item:strip()
+end
+
+if mode == 'un' then
+  mode = 'unpack'
+end
+
+pack(items, mode, false)</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^(check |un)?pack\s*(.*)</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>refill</name>
+			<script>--[[ Easily refill your drink container from a drink source.
+
+Pattern: ^refill (.*)$
+
+This will refill eq.drink from the specified source.
+--]]
+-- Import some library functions for speed and readability.
+local fmt = string.format
+local insert = table.insert
+
+local drink = eq.drink or "waterskin"
+local source = matches[2]
+local cmds = {}
+
+insert(cmds, fmt('fill %s from %s', drink, source))
+
+pack(drink, 'unpack')
+sendAll(unpack(cmds))
+pack(drink)</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^refill (.*)$</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>loot</name>
+			<script>--[[ Loot a dead body.
+
+Patterns:
+    - ^loot$
+
+This alias calls the loot() function.
+
+Since the actual commands for looting vary from MUD to MUD, and even from one
+character to the next on the same MUD, the actual loot code is stored as an
+external function that is not part of MUD Basics.  Instead, define a function
+named 'loot' that can be called with no arguments.  This function should
+properly loot a body for your character.
+
+Note: For convenience, MUD Basics has also defined a trigger, named 'auto
+loot', that calls the loot() function when something dies.
+--]]
+loot()  -- loot() is not part of the MUD Basics package.  Define your own.</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^loot$</regex>
+		</Alias>
+	</AliasPackage>
+	<ActionPackage />
+	<ScriptPackage>
+		<Script isActive="yes" isFolder="no">
+			<name>autoLogin</name>
+			<packageName></packageName>
+			<script>function autoLogin(event, args, profile)
+  --[[ A "smart" login function using triggers instead of timers.
+
+  This function starts a challenge/response cycle once a connection is made.
+  The list of strings and their responses should be saved in
+  state.loginSequence.  Example:
+    state.loginSequence = {
+      {"What's your name?", 'Mal'},
+      {"What's your password?", 'Serenity'},
+    }
+
+  Registered Event Handlers:
+    sysConnectionEvent
+
+  Arguments:
+    event - String name of the event handler that triggered this function.
+    args - Required for event hooks.  Args set by the event handler.
+    profile - Required for event hooks.  Table of the current Mudlet profile.
+  --]]
+  if event == "sysConnectionEvent" then
+    local loginSequence = state.loginSequence or nil
+    if not loginSequence then
+      msg = [[
+Can't find login sequence.  Please set up a login sequence table.  Example:
+  state.loginSequence = {
+    {"What's your name?", 'Mal'},
+    {"What's your password?", 'Serenity'},
+  }
+      ]]
+      echo(msg)
+      return
+    end
+
+    expectSequence(loginSequence)
+  end
+end</script>
+			<eventHandlerList>
+				<string>sysConnectionEvent</string>
+			</eventHandlerList>
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>expectSequence</name>
+			<packageName></packageName>
+			<script>function expectSequence(sequence, ordered)
+  --[[ Listen for strings from the MUD, and send appropriate responses to each.
+
+  This function starts an expect/respond cycle with the MUD.  The list of
+  expected strings and their responses should usually be ordered in the
+  sequence the MUD is expected to send them in.  See example below:
+    sequence = {
+      {"What's your name?", 'Mal'},
+      {"What's your password?", 'Serenity'},
+    }
+
+  The above example would create a trigger that listens for 'What's your name?'
+  and, when the trigger fires, sends 'Mal' and creates a new trigger listening
+  for "What's your password?".  When the second trigger fires, the password
+  ('Serenity') will be sent to the MUD.
+
+  NOTE: Each expected string will only trigger once, and then the trigger
+  object will be deleted.
+
+  Arguments:
+    sequence - A table of pairs of strings.  Each pair in the form of:
+               {"expect string from mud", "respond to mud with string"}
+    ordered - If true, only listen for one expect string at a time, in the
+              order they appear in the sequence table.  If false, begin
+              listening for all expected strings immediately.  (Default: true)
+
+  TODO: Implement the ordered version.
+  --]]
+  local ordered = ordered or true
+
+  -- TODO: This doesn't require the sequence to arrive in order.
+  for _, pair in ipairs(sequence) do
+    local expect = pair[1]
+    local response = pair[2]
+    tempTrigger(expect, function() send(response) end, 1)
+  end
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>pack</name>
+			<packageName></packageName>
+			<script>--[[ Easily put things in your backpack.
+
+Arguments:
+  items - Either a list-like table or a string.  The string(s) should be items
+          to put/get into/out of the eq.pack.
+  mode - A string choosing which operation to perofrm.
+         'unpack' - Get items from the pack
+         'check' - Do not move any items.  Open pack, look inside, close pack.
+         nil - Put items into the pack.
+  cmdEcho - If true, echo cmds while running them.  (Default: true)
+
+Implementation Notes:
+  - If your pack has a lid, set state.packHasLid to true.  If this value is false,
+    then the open/close commands will be skipped.
+--]]
+
+function pack(items, mode, cmdEcho)
+  -- Localize some library functions for speed and readability.
+  local fmt = string.format
+  local insert = table.insert
+
+  mode = mode or 'pack'
+  cmdEcho = cmdEcho or true
+  local pack = eq.pack or nil
+  if not pack then
+    --echo('You have not pack to pack things into.\n')
+    return
+  end
+  pack = '"' .. pack .. '"'  -- Allow spaces in pack's name.
+  local packHasLid = eq.packHasLid or false
+  local cmds = {}  -- List of all commands required for this action
+  local items = items or {}
+
+  if #items &lt; 1 and mode ~= 'check' then
+    return
+  end
+
+  if mode == 'check' then  -- Just looking inside the pack.
+    insert(cmds, fmt('look in %s', pack))
+  else
+    if type(items) == type("") then  -- If items is a string instead of a list
+      items = {items}
+    end
+
+    local action = 'put'
+    if mode == 'unpack' then  -- Removing items from pack instead of inserting
+      action = 'get'
+    end
+
+    for _, item in ipairs(items) do
+      insert(cmds, fmt('%s %s %s', action, item, pack))
+    end
+  end
+
+  if packHasLid then  -- Make open the first cmd and close the final cmd.
+    insert(cmds, 1, fmt('open %s', pack))
+    insert(cmds, fmt('close %s', pack))
+  end
+
+  insert(cmds, cmdEcho)  -- Add the echo option to sendAll's argument list.
+  sendAll(unpack(cmds))
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>string:strip</name>
+			<packageName></packageName>
+			<script>function string:strip(mode)
+  --[[ Remove leading and/or trailing whitespace from a string.
+
+  By default, remvoe leading AND trailing whitespace.
+
+  Arguments:
+    mode - 'left' means remove leading whitespace
+           'right' means remove trailing whitespace
+           'all' means remove leading and trailing whitespace
+           (default: 'all')
+
+  Return:
+    The input string, with targeted whitespace removed
+  --]]
+  local mode = mode or 'all'
+  local stripped = nil
+
+  local patterns = {
+    left = '^%s*',  -- Leading whiespace (left-strip)
+    right = '%s*$', -- Trailing whitespace (right-strip)
+  }
+
+  stripped = self
+  if mode == 'left' or mode == 'all' then
+    stripped = stripped:gsub(patterns['left'], '')
+  end
+  if mode == 'right' or mode == 'all' then
+    stripped = stripped:gsub(patterns['right'], '')
+  end
+
+  return stripped
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>cast</name>
+			<packageName></packageName>
+			<script>function cast(spell, target, castCmd)
+    local fmt = string.format
+
+    target = target or ''
+    castCmd = castCmd or 'cast'
+    local cmds = {
+        fmt('%s "%s"%s', castCmd, spell, target),
+    }
+
+    sendAll(unpack(cmds))
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>mudBasicsConfig</name>
+			<packageName></packageName>
+			<script>function mudBasicsConfig(event, moduleName, fileName)
+    --[[ Setup required variables and user functions.
+
+    MUD Basics uses two global tables:
+        * eq - A table of the equipment the character is using
+        * state - A table of variables used to syncroize game state
+
+    MUD Basics also relies on the user defining the following:
+        * loot() - What to do when Auto Loot is triggered.
+        * state.loginSequence - A list of expect/response strings to log into
+                                the MUD as a particular character.
+    --]]
+    echo('\nMod or Pkg loaded!\n')
+    echo(string.format('event: %s\n', event))
+    echo(string.format('moduleName: %s\n', moduleName))
+    echo(string.format('fileName: %s\n', fileName))
+    if moduleName ~= 'MUD Basics' then
+        return
+    end
+
+    local echo = echo
+    local fmt = string.format
+    local insert = table.insert
+    local msg = ''
+    local finalInstructions = {}
+
+    echo('\nmudBasicsConfig\n')
+
+    if not state then
+        state = {}
+        msg = 'Installing global table named "state"'
+        echo(fmt('%s\n', msg))
+        msg = 'Open the variables dialog, and check the box next to "state".'
+        insert(finalInstructions, msg)
+    end
+
+    if not eq then
+        eq = {}
+        msg = 'Installing global table named "eq"'
+        echo(fmt('%s\n', msg))
+        msg = 'Open the variables dialog, and check the box next to "eq".'
+        insert(finalInstructions, msg)
+    end
+
+    if not state.loginSequence then
+        msg = [[
+Auto Login will not work until you've defined a loginSequence.
+]]
+    end
+
+    -- Check for loot function
+    local lootExists = exists('loot', 'script')
+    if lootExists &lt; 1 then  -- If the loot() function is undefined
+        msg = 'Please define a loot() script.'
+        echo(fmt('%s\n', msg))
+    end
+
+    for _, msg in ipairs(finalInstructions) do
+        echo(fmt('%s\n', msg))
+    end
+end</script>
+			<eventHandlerList>
+				<string>sysInstallPackage</string>
+				<string>sysInstallModule</string>
+			</eventHandlerList>
+		</Script>
+	</ScriptPackage>
+	<KeyPackage />
+	<HelpPackage>
+		<helpURL></helpURL>
+	</HelpPackage>
+</MudletPackage>
