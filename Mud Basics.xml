@@ -294,11 +294,11 @@ function pack(items, mode, cmdEcho)
   mode = mode or 'pack'
   cmdEcho = cmdEcho or true
   local pack = eq.pack or nil
-  pack = '"' .. pack .. '"'  -- Allow spaces in pack's name.
   if not pack then
     --echo('You have not pack to pack things into.\n')
     return
   end
+  pack = '"' .. pack .. '"'  -- Allow spaces in pack's name.
   local packHasLid = eq.packHasLid or false
   local cmds = {}  -- List of all commands required for this action
   local items = items or {}
