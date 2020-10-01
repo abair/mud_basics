@@ -22,7 +22,9 @@ properly loot a body for your character.
 Note: For convenience, MUD Basics has also defined an alias, named 'loot', that
 calls the loot() function.
 --]]
-loot()  -- loot() is not part of the MUD Basics package.</script>
+if state.inCombat then  -- Don't loot other player's kills.
+    loot()  -- loot() is not part of the MUD Basics package.
+end</script>
 			<triggerType>0</triggerType>
 			<conditonLineDelta>0</conditonLineDelta>
 			<mStayOpen>0</mStayOpen>
@@ -56,7 +58,7 @@ loot()  -- loot() is not part of the MUD Basics package.</script>
 			<colorTriggerFgColor>#000000</colorTriggerFgColor>
 			<colorTriggerBgColor>#000000</colorTriggerBgColor>
 			<regexCodeList>
-				<string>.* (says?|tells?|asks?|reply|replies),?.*(?:"(.*)"|'(.*)')$</string>
+				<string>.* (says?|shouts?|tells?|reply|replies|whispers?|asks?|laugh|laughs|sighs?|gasps?),?.*(?:"(.*)"|'(.*)')$</string>
 			</regexCodeList>
 			<regexCodePropertyList>
 				<integer>1</integer>
