@@ -58,9 +58,11 @@ end</script>
 			<colorTriggerFgColor>#000000</colorTriggerFgColor>
 			<colorTriggerBgColor>#000000</colorTriggerBgColor>
 			<regexCodeList>
-				<string>.* (says?|shouts?|tells?|reply|replies|whispers?|asks?|laugh|laughs|sighs?|gasps?),?.*(?:"(.*)"|'(.*)')$</string>
+				<string>.* (says?|shouts?|tells?|reply|replies|whispers?|asks?|laugh|laughs|sighs?|gasps?)(?:to )?.*(?:, "(.*)"|, '(.*)')$</string>
+				<string>^(\*{3}&gt;) .*: (.*)</string>
 			</regexCodeList>
 			<regexCodePropertyList>
+				<integer>1</integer>
 				<integer>1</integer>
 			</regexCodePropertyList>
 		</Trigger>
@@ -637,6 +639,17 @@ end</script>
 			<eventHandlerList>
 				<string>sysDataSendRequest</string>
 			</eventHandlerList>
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>newStateManager</name>
+			<packageName></packageName>
+			<script>function newStateManager()
+    --[[ Constructor for the StateManager class.
+    
+    StateManagers handle listening for events and responding to them.
+    --]]
+end</script>
+			<eventHandlerList />
 		</Script>
 	</ScriptPackage>
 	<KeyPackage />
