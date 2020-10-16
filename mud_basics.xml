@@ -58,7 +58,7 @@ end</script>
 			<colorTriggerFgColor>#000000</colorTriggerFgColor>
 			<colorTriggerBgColor>#000000</colorTriggerBgColor>
 			<regexCodeList>
-				<string>.* (says?|shouts?|tells?|reply|replies|whispers?|asks?|laugh|laughs|sighs?|gasps?)(?:to )?.*(?:, "(.*)"|, '(.*)')$</string>
+				<string>.* (says?|shouts?|yells?|tells?|reply|replies|whispers?|asks?|laugh|laughs|sighs?|gasps?)(?:to )?.*(?:, "(.*)"|, '(.*)')$</string>
 				<string>^(\*{3}&gt;) .*: (.*)</string>
 			</regexCodeList>
 			<regexCodePropertyList>
@@ -225,6 +225,36 @@ loot()  -- loot() is not part of the MUD Basics package.  Define your own.</scri
 			<packageName></packageName>
 			<regex>^loot$</regex>
 		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>Add Item to Catalogue</name>
+			<script>itemCatalogueAdd(matches[2])</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>catalogue (.*)</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>Show Boons</name>
+			<script>local fmt = string.format
+local boons = state.boons
+local onColor = 'RoyalBlue'
+local offColor = 'DarkSlateBlue'
+
+for key, val in pairs(boons) do
+    local boolStr = 'off'
+    local color = offColor
+    if val then
+        boolStr = 'on'
+        color = onColor
+    end
+    
+    fg(color)
+    echo(fmt('%s: %s\n', key, boolStr))
+    resetFormat()
+end</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^boons$</regex>
+		</Alias>
 	</AliasPackage>
 	<ActionPackage />
 	<ScriptPackage>
@@ -330,6 +360,10 @@ end</script>
                          inside, close pack.
                'pack' - Put items into the pack.
                nil - default to 'pack' optioin
+               'lazyunpack' - unpack, but don't close the pack when finished.
+                              Also, open pack, even if items is empty.
+               'quickpack' - pack, but assume the pack is already open.
+                             Also, close pack, even if items is empty.
         cmdEcho - If true, echo cmds while running them.  (Default: true)
 
     Implementation Notes:
@@ -344,8 +378,7 @@ end</script>
     mode = mode or 'pack'
     cmdEcho = cmdEcho or true
     local pack = eq.pack or nil
-    if not pack then
-        --echo('You have not pack to pack things into.\n')
+    if not pack then  -- Nothing to pack into or unpack from.
         return
     end
 
@@ -353,7 +386,8 @@ end</script>
     local cmds = {}  -- List of all commands required for this action
     local items = items or {}
 
-    if #items &lt; 1 and mode ~= 'check' then
+    if #items &lt; 1 and mode ~= 'check'
+       and mode ~= 'lazyunpack' and mode ~= 'quickpack' then
         return
     end
 
@@ -365,7 +399,7 @@ end</script>
         end
 
         local action = 'put'
-        if mode == 'unpack' then  -- Removing items from the pack
+        if mode == 'unpack' or mode == 'lazyunpack' then  -- Taking from pack
             action = 'get'
         end
 
@@ -375,8 +409,13 @@ end</script>
     end
 
     if packHasLid then  -- Make open the first cmd and close the final cmd.
-        insert(cmds, 1, fmt('open %s', pack))
-        insert(cmds, fmt('close %s', pack))
+        if mode ~= 'quickpack' then
+            insert(cmds, 1, fmt('open %s', pack))
+        end
+        
+        if mode ~= 'lazyunpack' then
+            insert(cmds, fmt('close %s', pack))
+        end
     end
 
     insert(cmds, cmdEcho)  -- Add the echo option to sendAll's argument list.
@@ -641,13 +680,194 @@ end</script>
 			</eventHandlerList>
 		</Script>
 		<Script isActive="yes" isFolder="no">
-			<name>newStateManager</name>
+			<name>StateMan</name>
 			<packageName></packageName>
-			<script>function newStateManager()
-    --[[ Constructor for the StateManager class.
-    
-    StateManagers handle listening for events and responding to them.
+			<script>--[[ StateManagers handle listening for events and responding to them.
+--]]
+StateMan = {state = 'undefined'}  -- Meta class
+
+function StateMan:new(obj, initialState)
+    --[[ Constructor for state managers.
     --]]
+    obj = obj or {}
+    setmetatable(obj, self)
+    self.__index = self
+
+    -- If the initial state is never set, it is considered 'undefined'
+    self.state = initialState or 'undefined'
+
+    return obj
+end
+
+function StateMan:setState(state)
+    --[[ Set the current state of this StateMan
+    --]]
+    self.state = state or 'unknown'  -- unknown state if nil is passed
+    
+    return self.state
+end
+
+--[[ Binary State Managers track states that are either active or not.
+--]]
+BinStateMan = StateMan:new()  -- Meta Class
+
+function BinStateMan:new(obj, initialState)
+    --[[ Constructor for Binary State Managers.
+    
+    BinStateMans only have two states, true and false.  Any value for self.state
+    other than false or nil will be treated as true.  nil counts as false.
+    --]]
+    obj = obj or StateMan:new(obj)
+    setmetatable(obj, self)
+    self.__index = self
+    
+    -- Use setState() instead of parent constructor for initial state to force
+    -- the initial state to be either true or false.
+    self.setState(initialState)
+
+    return obj
+end
+
+function BinStateMan:setState(state)
+    --[[ Set the current state of this Binary State Manager.
+    --]]
+    if not state then
+        state = false
+    else
+        state = true
+    end
+
+    self.state = state
+    
+    -- Returning state instead of self.state is a tiny optimization by using a
+    -- local variable instead of one from the parent scope.  It's arguably less
+    -- accurate in all but the oddest race conditions.
+    return state
+end
+
+function BinStateMan:toggle(state)
+    --[[ Switch between the two possible states.
+    
+    Args:
+        state - If not nil, set self.state to the given state.  Anything other
+                than false will be treated as true.
+    --]]
+    if not state then
+        state = not self.state
+    end
+
+    return self:setState(state)
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>itemCatalogueAdd</name>
+			<packageName></packageName>
+			<script>function itemCatalogueAdd(item)
+    --[[ Catalogue information about item.
+
+    info like descrition and magical properties.
+    -- ]]
+    local fmt = string.format
+    local insert = table.insert
+    local cmds = {}
+    
+    local itemCatalogue = state.ItemCatalogue or {}
+    local entry = itemCatalogue[item] or {}
+    entry.dm = entry.dm or state.detectingMagic
+    
+    insert(cmds, fmt('look %s', item))
+    
+    sendAll(unpack(cmds))
+    
+    itemCatalogue[item] = entry
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>swapEq</name>
+			<packageName></packageName>
+			<script>function swapEq(alpha, bravo)
+    --[[ Unequip item alpha, and equip item bravo in its place.
+
+    If either alpha or bravo is nil, that argument will be ignored.  If both
+    are nil, then nothing will happen.
+    --]]
+
+    local fmt = string.format
+    local insert = table.insert
+
+    local cmds = {}
+    local unpackItems = {}
+    local packItems = {}
+
+    if not alpha and not bravo then  -- No items, so nothing to do.
+        return
+    end
+
+    if alpha then  -- Remove alpha and pack it up.
+        insert(cmds, fmt('remove %s', alpha))
+        insert(packItems, alpha)
+    end
+
+    if bravo then  -- Unpack bravo and equip it.
+        insert(unpackItems, bravo)
+        insert(cmds, fmt('wear  %s', bravo))
+    end
+
+    pack(unpackItems, 'lazyunpack')  -- Retrieve needed gear.
+    sendAll(unpack(cmds))  -- Swap items.
+    pack(packItems, 'quickpack')  -- Packup unneeded gear.
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>boonToggle</name>
+			<packageName></packageName>
+			<script>function boonToggle(gear, special, flag)
+    --[[ Toggle between two pieces of gear.
+
+      This function is usually used to swap between a preferred piece of
+      equipment that is worn most of the time and a special piece of equipment
+      that is sometimes worn for the boon it provides.
+
+      Args:
+          gear - The str name of the variable in the global eq table that
+                 stores the str name of a piece of kit that you will remove to
+                 wear the special piece.
+                 Ex: gear = 'shield' and eq['shield'] = 'wooden.buckler'
+          special - The str name of the variable in the global eq table that
+                    stores the str name of a special piece of kit that you want
+                    to wear in place of the normal gear.
+                    Ex: special = 'lightsource' and eq['lightsource'] = 'torch'
+          flag - The name of a bool variable in the global table named 'state'.
+                 state[flag] will track when you're wearing the special.  It
+                 will be set to true when the special is equipped and false
+                 when it is unequipped.
+    --]]
+    -- Local variables for eq and boon flags tables
+    local eq = eq
+    local boons = state.boons or nil
+    
+    if not eq or not boons then
+        return  -- Can't use this function without eq and boon tables
+    end
+
+    if gear then gear = eq[gear] or nil end
+    if special then special = eq[special] or nil end
+
+    local from = ''
+    local to = ''
+    if boons[flag] then  -- If special is currently equipped:
+        from = special
+        to = gear
+    else  -- gear is currently equipped:
+        from = gear
+        to = special
+    end
+
+    swapEq(from, to)
+    boons[flag] = not boons[flag]  -- Toggle this boon's state.
 end</script>
 			<eventHandlerList />
 		</Script>
