@@ -46,7 +46,11 @@ end</script>
 		</Trigger>
 		<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="yes" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 			<name>Speech Highlighter</name>
-			<script></script>
+			<script>local chatWin = state.chatWin or nil
+
+if chatWin then
+    echo(chatWin, matches[1])
+end</script>
 			<triggerType>0</triggerType>
 			<conditonLineDelta>0</conditonLineDelta>
 			<mStayOpen>0</mStayOpen>
@@ -126,9 +130,9 @@ if not thirstless and (not mode or mode == 'drink') then
     insert(cmds, fmt('drink %s', drink))
 end
 
-pack(items, 'unpack')
+pack(items, 'lazyunpack')
 sendAll(unpack(cmds))
-pack(items)</script>
+pack(items, 'quickpack')</script>
 			<command></command>
 			<packageName></packageName>
 			<regex>^chow ?(food|drink)?$</regex>
@@ -195,9 +199,9 @@ local cmds = {}
 
 insert(cmds, fmt('fill %s from %s', drink, source))
 
-pack(drink, 'unpack')
+pack(drink, 'lazyunpack')
 sendAll(unpack(cmds))
-pack(drink)</script>
+pack(drink, 'quickpack')</script>
 			<command></command>
 			<packageName></packageName>
 			<regex>^refill (.*)$</regex>
@@ -246,7 +250,7 @@ for key, val in pairs(boons) do
         boolStr = 'on'
         color = onColor
     end
-    
+
     fg(color)
     echo(fmt('%s: %s\n', key, boolStr))
     resetFormat()
@@ -254,6 +258,50 @@ end</script>
 			<command></command>
 			<packageName></packageName>
 			<regex>^boons$</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>Swap</name>
+			<script>--[[ Swap one piece of equipment for another. --]]
+local first = matches[2]:strip()
+local second = matches[3]:strip()
+
+swapEq(first, second)</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^swap (.*) (.*)</regex>
+		</Alias>
+		<Alias isActive="yes" isFolder="no">
+			<name>Chat Window</name>
+			<script>local action = string.strip(matches[2])
+local chatWin = state.chatWin or nil
+
+if not action then  -- Toggle Chat Window visibility.
+    local chatWin = chatWin or 'chatWin'  -- May have to create it.
+
+    local chatWinHidden = state.chatWinHidden
+    if chatWinHidden == nil then  -- No chatWin exists yet.
+        chatWinHidden = true
+    end
+
+    openUserWindow(chatWin)
+    setUserWindowTitle(chatWin, 'Chats')
+
+    if chatWinHidden then
+        showWindow(chatWin)
+    else
+        hideWindow(chatWin)
+    end
+
+    state.chatWin = chatWin  -- Just in case it didn't exist yet.
+    state.chatWinHidden = not chatWinHidden
+elseif action == 'clear' and chatWin then  -- Clear the Chat Window
+    clearWindow(chatWin)
+elseif action == 'mark' and chatWin then  -- Mark the current line of chatWin.
+    markRead(chatWin)
+end</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>^(clear |mark )?chatwin$</regex>
 		</Alias>
 	</AliasPackage>
 	<ActionPackage />
@@ -412,7 +460,7 @@ end</script>
         if mode ~= 'quickpack' then
             insert(cmds, 1, fmt('open %s', pack))
         end
-        
+
         if mode ~= 'lazyunpack' then
             insert(cmds, fmt('close %s', pack))
         end
@@ -440,6 +488,10 @@ end</script>
     Return:
         The input string, with targeted whitespace removed
     --]]
+    if self == nil then
+        return self  -- Do nothing.
+    end
+
     local mode = mode or 'all'
     local stripped = nil
 
@@ -703,7 +755,7 @@ function StateMan:setState(state)
     --[[ Set the current state of this StateMan
     --]]
     self.state = state or 'unknown'  -- unknown state if nil is passed
-    
+
     return self.state
 end
 
@@ -713,14 +765,14 @@ BinStateMan = StateMan:new()  -- Meta Class
 
 function BinStateMan:new(obj, initialState)
     --[[ Constructor for Binary State Managers.
-    
+
     BinStateMans only have two states, true and false.  Any value for self.state
     other than false or nil will be treated as true.  nil counts as false.
     --]]
     obj = obj or StateMan:new(obj)
     setmetatable(obj, self)
     self.__index = self
-    
+
     -- Use setState() instead of parent constructor for initial state to force
     -- the initial state to be either true or false.
     self.setState(initialState)
@@ -738,7 +790,7 @@ function BinStateMan:setState(state)
     end
 
     self.state = state
-    
+
     -- Returning state instead of self.state is a tiny optimization by using a
     -- local variable instead of one from the parent scope.  It's arguably less
     -- accurate in all but the oddest race conditions.
@@ -747,7 +799,7 @@ end
 
 function BinStateMan:toggle(state)
     --[[ Switch between the two possible states.
-    
+
     Args:
         state - If not nil, set self.state to the given state.  Anything other
                 than false will be treated as true.
@@ -771,15 +823,15 @@ end</script>
     local fmt = string.format
     local insert = table.insert
     local cmds = {}
-    
+
     local itemCatalogue = state.ItemCatalogue or {}
     local entry = itemCatalogue[item] or {}
     entry.dm = entry.dm or state.detectingMagic
-    
+
     insert(cmds, fmt('look %s', item))
-    
+
     sendAll(unpack(cmds))
-    
+
     itemCatalogue[item] = entry
 end</script>
 			<eventHandlerList />
@@ -848,7 +900,7 @@ end</script>
     -- Local variables for eq and boon flags tables
     local eq = eq
     local boons = state.boons or nil
-    
+
     if not eq or not boons then
         return  -- Can't use this function without eq and boon tables
     end
@@ -868,6 +920,38 @@ end</script>
 
     swapEq(from, to)
     boons[flag] = not boons[flag]  -- Toggle this boon's state.
+end</script>
+			<eventHandlerList />
+		</Script>
+		<Script isActive="yes" isFolder="no">
+			<name>markRead</name>
+			<packageName></packageName>
+			<script>function markRead(win)
+    --[[ Print a clearly visible line in a window's scrollback.
+
+    This is used to mark the last palce you read so that you can quickly scroll
+    back to it or see it stand out in the logs.
+    --]]
+    local fmt = string.format
+
+    local markLen = 80
+    --[[ TODO:  Figure out how to get the window's wrap parameter.
+    You can set the text width of a window with the setWindowWrap(chatWin)
+    function, but I don't see a geter for that value.
+    --]]
+    --local r, g, b = getFgColor()  -- The current FG color so we can reset later.
+    local rainbow = { 'red', 'orange', 'yellow', 'green', 'blue', 'purple' }
+    local color = nil
+    local cdex = nil  -- Color Index
+    while markLen &gt; 0 do
+      cdex = (markLen % #rainbow) + 1
+      color = rainbow[cdex]
+      cecho(win, fmt('&lt;%s&gt;-', color))
+      markLen = markLen - 1
+    end
+    --setFgColor(win, r, g, b )
+    --cecho('&lt;reset&gt;foo\n')
+    echo(win, '\n')
 end</script>
 			<eventHandlerList />
 		</Script>
